@@ -46,12 +46,9 @@ sml_planning_node  sml_manager_node
          /sml/get_plan (Service)
 
                     sml_manager_node
-                          ↓ navigate_to_station (Action)
-                    mock_nav_node
-                          ↓ /amr_robot_command (Service)
-                    mock_arm_node
-                          ↓ wb_task (Action)
-                    mock_wb_node
+                    ├─ navigate_to_station (Action) → mock_nav_node
+                    ├─ /amr_robot_command (Service) → mock_arm_node
+                    └─ wb_task (Action)             → mock_wb_node
 ```
 
 ---

@@ -1,12 +1,10 @@
 # Goal
-string  work_type       # "PRODUCE" / "RECYCLE"
-int32   product_id      # 만들거나 분해할 product_id (예: 13, 81)
-
----
-# Feedback
-string status           # "PROCESSING" / "PRODUCING" / "RECYCLING"
-
+string  work_type
+int32   product_id
 ---
 # Result
 bool    success
 string  fail_reason
+---
+# Feedback
+string status

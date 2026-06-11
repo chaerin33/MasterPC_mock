@@ -1,11 +1,9 @@
 # Goal
 int32  station_id
-
----
-# Feedback
-string status          # "MOVING" / "ARRIVED"
-
 ---
 # Result
 bool   success
-string fail_reason     # "NAV_FAILED" / "OBSTACLE" / "TIMEOUT"
+string fail_reason
+---
+# Feedback
+string status
