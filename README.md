@@ -4,7 +4,8 @@
 > `amr_robot_ws` 없이 독립적으로 실행 가능합니다.
 
 ---
-
+<img width="1920" height="1080" alt="output" src="https://github.com/user-attachments/assets/4a1ecc14-7d71-43ed-9472-5b3df92b3967" />
+---
 ## 📦 패키지 구조
 
 ```
