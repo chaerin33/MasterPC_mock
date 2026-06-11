@@ -10,7 +10,6 @@
 
   <depend>rclpy</depend>
   <depend>sml_msgs</depend>
-  <depend>arm_interfaces</depend>
   <depend>action_msgs</depend>
   <depend>std_msgs</depend>
 

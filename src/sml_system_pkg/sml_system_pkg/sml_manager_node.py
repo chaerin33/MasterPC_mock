@@ -21,10 +21,9 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from std_msgs.msg import String
 
-from arm_interfaces.srv import ArmCommand
 from sml_msgs.action import NavTask, WbTask
 from sml_msgs.msg import Step, Task
-from sml_msgs.srv import GetPlan
+from sml_msgs.srv import ArmCommand, GetPlan
 
 
 class SmlManagerNode(Node):

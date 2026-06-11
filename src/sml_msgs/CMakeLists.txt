@@ -11,6 +11,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Task.msg"
   "msg/Step.msg"
   "srv/GetPlan.srv"
+  "srv/ArmCommand.srv"
   "action/NavTask.action"
   "action/WbTask.action"
   DEPENDENCIES action_msgs
