@@ -4,8 +4,24 @@
 > `amr_robot_ws` 없이 독립적으로 실행 가능합니다.
 
 ---
+
+## 🚀 실행 데모
+
 <img width="1920" height="1080" alt="output" src="https://github.com/user-attachments/assets/4a1ecc14-7d71-43ed-9472-5b3df92b3967" />
+
+### 터미널 구성 (6분할)
+
+| 위치 | 실행 명령어 | 설명 |
+|------|------------|------|
+| 상단 좌 | `ros2 run sml_system_pkg mock_nav_node` | [MOCK NAV] navigate_to_station 서버 |
+| 상단 중 | `ros2 run sml_system_pkg mock_arm_node` | [MOCK ARM] /amr_robot_command 서버 |
+| 상단 우 | `ros2 run sml_system_pkg mock_wb_node` | [MOCK WB] wb_task 서버 |
+| 하단 좌 | `ros2 run sml_system_pkg sml_planning_node` | [PLANNING] PlanningNode |
+| 하단 중 | `ros2 run sml_system_pkg sml_manager_node` | [MANAGER] sml_manager_node |
+| 하단 우 | `ros2 run sml_system_pkg order_node` | [ORDER]order_list 및 arena_layout 설정값 출력 |
+
 ---
+
 ## 📦 패키지 구조
 
 ```
