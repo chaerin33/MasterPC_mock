@@ -212,6 +212,5 @@ order_server 실행 후 Tier / Stage를 입력하면 전체 흐름이 시작됩�
 
 | 저장소 | 설명 |
 |--------|------|
-| [MasterPC_ws](https://github.com/chaerin33/MasterPC_ws) | 실제 운용 워크스페이스 |
 | [MasterPC_mock](https://github.com/chaerin33/MasterPC_mock) | 이 저장소 |
 | [amr_robot_ws](https://github.com/chaerin33/amr_robot_ws) | AMR 로봇팔 제어 |
