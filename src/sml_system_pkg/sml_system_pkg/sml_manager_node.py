@@ -7,7 +7,7 @@ depends_on 기반으로 AMR / WB를 병렬 실행하는 노드.
   구독  /sml/task          (sml_msgs/Task)
   서비스 /sml/get_plan     (sml_msgs/GetPlan)   ← planning_node
   Action navigate_to_station (sml_msgs/NavTask) → amr_nav_node
-  서비스 /amr_robot_command  (arm_interfaces/ArmCommand) → amr_robot_node
+  서비스 /amr_robot_command  (sml_msgs/ArmCommand) → amr_robot_node
   Action wb_task             (sml_msgs/WbTask)  → workbench_node
   발행  /sml/status        (std_msgs/String)    모니터링용
 """

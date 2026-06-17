@@ -1,14 +1,9 @@
 # ArmCommand.srv
-# arm_interfaces/ArmCommand 대체용 (mock 테스트용)
-
-# Request
-string   action      # "LOAD" / "UNLOAD"
-int32[]  object_ids  # 적재/하역할 object ID 목록
-string   location    # 예비 필드 (현재 미사용)
-
+string action
+int32[] object_ids
+string location
 ---
-
-# Response
-bool     success
-string   message     # 실패 사유 또는 "" (성공시)
-int32[]  slots       # 완료 후 슬롯 상태 (LOAD 성공 시 사용된 슬롯 번호)
+bool success
+int32[] slots
+int32[] object_ids
+string message
