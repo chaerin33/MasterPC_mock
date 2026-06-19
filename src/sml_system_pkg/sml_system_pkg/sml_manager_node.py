@@ -8,6 +8,7 @@ depends_on 기반으로 AMR / WB를 병렬 실행하는 노드.
   서비스 /sml/get_plan     (sml_msgs/GetPlan)   ← planning_node
   Action navigate_to_station (sml_msgs/NavTask) → amr_nav_node
   서비스 /amr_robot_command  (sml_msgs/ArmCommand) → amr_robot_node
+  서비스 /robocup_navigator/post_process (std_srvs/Trigger) → robocup_navigator
   Action wb_task             (sml_msgs/WbTask)  → workbench_node
   발행  /sml/status        (std_msgs/String)    모니터링용
 """
@@ -20,6 +21,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 
 from sml_msgs.action import NavTask, WbTask
 from sml_msgs.msg import Step, Task
@@ -43,6 +45,12 @@ class SmlManagerNode(Node):
         # GetPlan 재시도 관련
         self._plan_retry_count = 0
         self._plan_timer       = None
+        self._max_plan_retries = 10
+
+        self.declare_parameter(
+            'post_process_service_name',
+            '/robocup_navigator/post_process',
+        )
 
         # ── Subscriber ─────────────────────────────────────
         self.task_sub = self.create_subscription(
@@ -56,6 +64,10 @@ class SmlManagerNode(Node):
             callback_group=self.cbg)
         self.arm_client = self.create_client(
             ArmCommand, '/amr_robot_command',
+            callback_group=self.cbg)
+        self.post_process_client = self.create_client(
+            Trigger,
+            self.get_parameter('post_process_service_name').value,
             callback_group=self.cbg)
 
         # ── Action Clients ─────────────────────────────────
@@ -94,30 +106,22 @@ class SmlManagerNode(Node):
             self._plan_timer = None
 
         if not self.get_plan_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().error('[MANAGER] GetPlan 서비스 없음')
+            self._retry_get_plan('GetPlan 서비스 없음')
             return
 
         future = self.get_plan_client.call_async(GetPlan.Request())
         future.add_done_callback(self._on_get_plan_response)
 
     def _on_get_plan_response(self, future):
-        MAX_RETRY = 10
-
         try:
             response = future.result()
         except Exception as e:
             self.get_logger().error(f'[MANAGER] GetPlan 호출 예외: {e}')
+            self._retry_get_plan('GetPlan 호출 예외')
             return
 
         if not response.success:
-            self._plan_retry_count += 1
-            if self._plan_retry_count <= MAX_RETRY:
-                self.get_logger().warn(
-                    f'[MANAGER] 계획 미생성, 재시도 '
-                    f'({self._plan_retry_count}/{MAX_RETRY})')
-                self._plan_timer = self.create_timer(0.5, self._try_get_plan)
-            else:
-                self.get_logger().error('[MANAGER] GetPlan 최대 재시도 초과')
+            self._retry_get_plan('계획 미생성')
             return
 
         self.get_logger().info(
@@ -128,6 +132,19 @@ class SmlManagerNode(Node):
             self.pending_steps = list(response.steps)
 
         self._dispatch()
+
+    def _retry_get_plan(self, reason):
+        self._plan_retry_count += 1
+        if self._plan_retry_count <= self._max_plan_retries:
+            self.get_logger().warn(
+                f'[MANAGER] {reason}, 재시도 '
+                f'({self._plan_retry_count}/{self._max_plan_retries})')
+            self._plan_timer = self.create_timer(0.5, self._try_get_plan)
+            return
+
+        self.get_logger().error('[MANAGER] GetPlan 최대 재시도 초과')
+        with self._lock:
+            self.plan_requested = False
 
     # ──────────────────────────────────────────────────────
     # 스텝 디스패치 (핵심 로직)
@@ -255,7 +272,18 @@ class SmlManagerNode(Node):
             return
 
         self.get_logger().info(
-            f'[NAV] step {step.step_id} 도착 완료 → ARM 실행')
+            f'[NAV] step {step.step_id} 도착 완료')
+
+        if step.action == Step.GOAL:
+            # 단순 이동(00 복귀)이므로 ARM 호출 없이 바로 완료 처리
+            self.get_logger().info(
+                f'[NAV] step {step.step_id} GOAL 도착 → ARM 생략, 완료 처리')
+            with self._lock:
+                self.amr_busy = False
+            self._on_step_complete(step.step_id)
+            return
+
+        self.get_logger().info(f'[NAV] step {step.step_id} → ARM 실행')
         self._execute_arm(step)
 
     def _execute_arm(self, step, retry=0):
@@ -312,6 +340,58 @@ class SmlManagerNode(Node):
         self.get_logger().info(
             f'[ARM] step {step.step_id} 완료 '
             f'| slots={list(response.slots)}')
+        self._execute_nav_post_process(step)
+
+    def _execute_nav_post_process(self, step, retry=0):
+        MAX_RETRY = 1
+
+        if not self.post_process_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().error(
+                f'[POST] step {step.step_id}: post_process 서비스 없음')
+            with self._lock:
+                self.amr_busy = False
+            return
+
+        self.get_logger().info(
+            f'[POST] step {step.step_id} → navigator 후처리 실행')
+
+        future = self.post_process_client.call_async(Trigger.Request())
+        future.add_done_callback(
+            lambda f, s=step, r=retry: self._on_nav_post_process_result(
+                f, s, r))
+
+    def _on_nav_post_process_result(self, future, step, retry):
+        MAX_RETRY = 1
+
+        try:
+            response = future.result()
+        except Exception as e:
+            self.get_logger().error(
+                f'[POST] step {step.step_id} 예외: {e}')
+            if retry < MAX_RETRY:
+                self.get_logger().warn(
+                    f'[POST] step {step.step_id} 재시도 '
+                    f'({retry+1}/{MAX_RETRY})')
+                self._execute_nav_post_process(step, retry + 1)
+            else:
+                with self._lock:
+                    self.amr_busy = False
+            return
+
+        if not response.success:
+            self.get_logger().error(
+                f'[POST] step {step.step_id} 실패: {response.message}')
+            if retry < MAX_RETRY and response.message != 'NO_PENDING_POST_PROCESS':
+                self.get_logger().warn(
+                    f'[POST] step {step.step_id} 재시도 '
+                    f'({retry+1}/{MAX_RETRY})')
+                self._execute_nav_post_process(step, retry + 1)
+            else:
+                with self._lock:
+                    self.amr_busy = False
+            return
+
+        self.get_logger().info(f'[POST] step {step.step_id} 완료')
         with self._lock:
             self.amr_busy = False
         self._on_step_complete(step.step_id)
@@ -394,6 +474,7 @@ class SmlManagerNode(Node):
             Step.UNLOAD:  'UNLOAD ',
             Step.PRODUCE: 'PRODUCE',
             Step.RECYCLE: 'RECYCLE',
+            Step.GOAL:    'GOAL   ',
         }
         self.get_logger().info('===== 수신된 스텝 시퀀스 =====')
         for s in steps:
